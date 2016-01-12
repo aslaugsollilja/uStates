@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+	.state{
+		fill: none;
+		stroke: #a9a9a9;
+		stroke-width: 1;
+	}
+
+	#tooltip {   
+		position: absolute;           
+		text-align: center;
+		padding: 20px;             
+		margin: 10px;
+		font: 12px sans-serif;        
+		background: lightsteelblue;   
+		border: 1px;      
+		border-radius: 2px;           
+		pointer-events: none;         
+	}
+	#tooltip h4{
+		margin:0;
+		font-size:14px;
+	}
+	#tooltip{
+		background:rgba(0,0,0,0.9);
+		border:1px solid grey;
+		border-radius:5px;
+		font-size:12px;
+		width:auto;
+		padding:4px;
+		color:white;
+		opacity:0;
+	}
+	#tooltip table{
+		table-layout:fixed;
+	}
+	#tooltip tr td{
+		padding:0;
+		margin:0;
+	}
+	#tooltip tr td:nth-child(1){
+		width:180px;
+		text-align: left
+	}
+	#tooltip tr td:nth-child(2){
+		text-align:right;
+	}
+
+	#barsvg text {
+	  fill: white;
+	  font: 10px sans-serif;
+	  text-anchor: end;
+	}
+
+.statesvg {
+   float: left;
+}
+
+.barSvg {
+	float: right;
+}
+
+.colorBarSvg {
+    float: right;
+    /*position: absolute;
+    left: 30px;
+    width: 310px;
+
+    background-color: #b0e0e6;*/
+}
+
+
+</style>
+<body>
+<div id="tooltip"></div><!-- div to hold tooltip. -->
+<form id="stateOptionForm">
+	<input value="numExe" type="radio" name="stateOption" checked>Number of Executed offenders
+	<input value="numOnDeathRow" type="radio" name="stateOption">Number of offenders on death row
+	<input value="numInno" type="radio" name="stateOption">Number of innocent offenders freed
+	<input value="murderRate" type="radio" name="stateOption">Murder rate
+</form >
+
+
+<svg width="960" height="600" id="statesvg" class="statesvg">
+</svg> 
+
+<svg height="100" width="300" class"colorBarSvg">
+	<polygon style="display: none" id="colorBarArrow" transform="translate(0,20)" points="0,0 10,0 5,10"></polygon>	
+	<rect transform="translate(5,30)" height="30" width="200" fill="url(#_ABSTRACT_RENDERER_ID_2)"></rect>
+	<text x="5" y="80" style="fill:black;" id="minValue">
+	0
+	</text>
+	<text x="190" y="80" style="fill:black;" id="maxValue">
+    518
+	</text>
+</svg>
+<!-- svg to hold the map. -->
+<svg id="barsvg" height="530" width="310" class="barSvg"> 
+</svg>
+
+
+<svg>
+<defs>
+	<linearGradient 
+	id="_ABSTRACT_RENDERER_ID_2" x1="0%" y1="0%" x2="100%" y2="0%">
+		<stop offset="0%" style="stop-color:#DC9D9D;stop-opacity:1">
+		</stop>
+		<stop offset="100%" style="stop-color:#8D1414;stop-opacity:1"></stop>
+	</linearGradient>
+</defs>	
+</svg>
+
+<script src="uStates.js"></script> <!-- creates uStates. -->
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src='http://code.jquery.com/jquery-latest.min.js' type='text/javascript'></script>
+<script>
+
+	d3.selection.prototype.moveToFront = function() {
+  return this.each(function(){
+    this.parentNode.appendChild(this);
+  });
+}
+d3.selection.prototype.moveToBack = function() { 
+    return this.each(function() { 
+        var firstChild = this.parentNode.firstChild; 
+        if (firstChild) { 
+            this.parentNode.insertBefore(this, firstChild); 
+        } 
+    }); 
+};
+
+var rawData = [
+	//name of the state
+	//is death penalty in the state? yes or no
+	//Number of executions since 1976
+	//Number of innocent Persons Freed From Death Row
+	//Current Death Row Population
+	//murder rate for that state (per 100,000)
+	//execution rate, Executions per Capita (x10,000)
+
+	{"state":"AL", "deathPenalty":"Yes", "numExe":"56", "numInno":"5", "numOnDeathRow":"202" ,"murderRate":"5.7", "executionRate":"0.111"}, //Alabama
+	{"state":"AK", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"4.4"}, //Alaska
+	{"state":"AZ", "deathPenalty":"Yes", "numExe":"37", "numInno":"8", "numOnDeathRow":"123" ,"murderRate":"6.4", "executionRate":"0.044"}, //Arizona
+	{"state":"AR", "deathPenalty":"Yes", "numExe":"27", "numInno":"0", "numOnDeathRow":"34" ,"murderRate":"4.7", "executionRate":"0.093"}, //Arkansas
+	{"state":"CA", "deathPenalty":"Yes", "numExe":"13", "numInno":"3", "numOnDeathRow":"745" ,"murderRate":"4.9", "executionRate":"0.003"}, //California
+	{"state":"CO", "deathPenalty":"Yes", "numExe":"1", "numInno":"0", "numOnDeathRow":"3" ,"murderRate":"2.4", "executionRate":"0.002"}, //Colorado
+	{"state":"CT", "deathPenalty":"No", "numExe":"1", "numInno":"0", "numOnDeathRow":"12" ,"murderRate":"3.6", "executionRate":"0.003"}, //Connecticut
+	{"state":"DC", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"24"}, //Washington DC
+	{"state":"DE", "deathPenalty":"Yes", "numExe":"16",  "numInno":"0", "numOnDeathRow":"18" ,"murderRate":"5.3", "executionRate":"0.167"}, //Delaware
+	{"state":"FL", "deathPenalty":"Yes", "numExe":"89", "numInno":"24", "numOnDeathRow":"404" ,"murderRate":"5.2", "executionRate":"0.037"}, //Florida
+	{"state":"GA", "deathPenalty":"Yes", "numExe":"55", "numInno":"5", "numOnDeathRow":"92" ,"murderRate":"5.8", "executionRate":"0.053"}, //Georgia
+	{"state":"HI", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"1.8"}, //Hawaii
+	{"state":"IA", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"1.3"}, //Iowa
+	{"state":"ID", "deathPenalty":"Yes", "numExe":"3", "numInno":"1", "numOnDeathRow":"12" ,"murderRate":"1.3", "executionRate":"0.006"}, //Idaho
+	{"state":"IL", "deathPenalty":"No", "numExe":"12", "numInno":"20", "numOnDeathRow":"0" ,"murderRate":"5.5", "executionRate":"0.009"}, //Illinois
+	{"state":"IN", "deathPenalty":"Yes", "numExe":"20", "numInno":"2", "numOnDeathRow":"14" ,"murderRate":"4.5", "executionRate":"0.031"}, //Indiana
+	{"state":"KS", "deathPenalty":"Yes", "numExe":"0", "numInno":"0", "numOnDeathRow":"10" ,"murderRate":"3.5", "executionRate":"0.000"}, //Kansas
+	{"state":"KY", "deathPenalty":"Yes", "numExe":"3", "numInno":"1", "numOnDeathRow":"34" ,"murderRate":"4.3", "executionRate":"0.007"}, //Kentucky
+	{"state":"LS", "deathPenalty":"Yes", "numExe":"28", "numInno":"10", "numOnDeathRow":"85" ,"murderRate":"11.2", "executionRate":"0.062"}, //Louisiana
+	{"state":"MA", "deathPenalty":"No", "numExe":"0", "numInno":"3", "numOnDeathRow":"0" ,"murderRate":"3.2"}, //Massachusetts
+	{"state":"MD", "deathPenalty":"No", "numExe":"5", "numInno":"1", "numOnDeathRow":"4", "murderRate":"7.4", "executionRate":"0.009"}, //Maryland
+	{"state":"ME", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"1.8"}, //Maine
+	{"state":"MI", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"5.7"}, //Michigan
+	{"state":"MN", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"1.8"}, //Minnesota
+	{"state":"MO", "deathPenalty":"Yes", "numExe":"80", "numInno":"4", "numOnDeathRow":"42" ,"murderRate":"7", "executionRate":"0.114"}, //Missouri
+	{"state":"MS", "deathPenalty":"Yes", "numExe":"21", "numInno":"3", "numOnDeathRow":"48" ,"murderRate":"7", "executionRate":"0.051"}, //Mississippi
+	{"state":"MT", "deathPenalty":"Yes", "numExe":"3", "numInno":"0", "numOnDeathRow":"2" ,"murderRate":"2.6", "executionRate":"0.030"}, //Montana
+	{"state":"NC", "deathPenalty":"Yes", "numExe":"43", "numInno":"9", "numOnDeathRow":"162" ,"murderRate":"5", "executionRate":"0.045"}, //North Carolina
+	{"state":"ND", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"1.5"}, //North Dakota
+	{"state":"NE", "deathPenalty":"Yes", "numExe":"3", "numInno":"1", "numOnDeathRow":"11" ,"murderRate":"3", "executionRate":"0.016"}, //Nebraska
+	{"state":"NH", "deathPenalty":"Yes", "numExe":"0", "numInno":"0", "numOnDeathRow":"1" ,"murderRate":"1", "executionRate":"0.00"}, //New Hampshire
+	{"state":"NJ", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"4.2"}, //New Jersey
+	{"state":"NM", "deathPenalty":"No", "numExe":"1", "numInno":"4", "numOnDeathRow":"2" ,"murderRate":"6.9", "executionRate":"0.005"}, //New Mexico
+	{"state":"NV", "deathPenalty":"Yes", "numExe":"12", "numInno":"1", "numOnDeathRow":"79" ,"murderRate":"5.9", "executionRate":"0.044"}, //Nevada
+	{"state":"NY", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"4.5"}, //New York
+	{"state":"OH", "deathPenalty":"Yes", "numExe":"53", "numInno":"6", "numOnDeathRow":"143" ,"murderRate":"4.1", "executionRate":"0.039"}, //Ohio
+	{"state":"OK", "deathPenalty":"Yes", "numExe":"111", "numInno":"10", "numOnDeathRow":"49" ,"murderRate":"5.2", "executionRate":"0.256"}, //Oklahoma
+	{"state":"OR", "deathPenalty":"Yes", "numExe":"2", "numInno":"0", "numOnDeathRow":"36" ,"murderRate":"2.4", "executionRate":"0.005"}, //Oregon
+	{"state":"PA", "deathPenalty":"Yes", "numExe":"3", "numInno":"6", "numOnDeathRow":"191" ,"murderRate":"5.2", "executionRate":"0.002"}, //Pennsylvania
+	{"state":"RI", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"2.8"}, //Rhode Island
+	{"state":"SC", "deathPenalty":"Yes", "numExe":"43", "numInno":"2", "numOnDeathRow":"46" ,"murderRate":"6.1", "executionRate":"0.093"}, //South Carolina
+	{"state":"SD", "deathPenalty":"Yes", "numExe":"3", "numInno":"0", "numOnDeathRow":"4" ,"murderRate":"2.8", "executionRate":"0.012"}, //South Dakota
+	{"state":"TN", "deathPenalty":"Yes", "numExe":"6", "numInno":"3", "numOnDeathRow":"75" ,"murderRate":"5.6", "executionRate":"0.009"}, //Tennessee
+	{"state":"TX", "deathPenalty":"Yes", "numExe":"518", "numInno":"12", "numOnDeathRow":"277" ,"murderRate":"5", "executionRate":"0.188"}, //Texas
+	{"state":"UT", "deathPenalty":"Yes", "numExe":"7", "numInno":"0", "numOnDeathRow":"9" ,"murderRate":"1.9", "executionRate":"0.025"}, //Utah
+	{"state":"VA", "deathPenalty":"Yes", "numExe":"110", "numInno":"1", "numOnDeathRow":"8" ,"murderRate":"4.6", "executionRate":"0.135"}, //Virginia
+	{"state":"VT", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"1.1"}, //Vermont
+	{"state":"WA", "deathPenalty":"Yes", "numExe":"5", "numInno":"1", "numOnDeathRow":"9" ,"murderRate":"2.3", "executionRate":"0.007"}, //Washington
+	{"state":"WI", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"2.7"}, //Wisconsin
+	{"state":"WV", "deathPenalty":"No", "numExe":"0", "numInno":"0", "numOnDeathRow":"0" ,"murderRate":"3.3"}, //West Virginia
+	{"state":"WY", "deathPenalty":"Yes", "numExe":"1", "numInno":"0", "numOnDeathRow":"1" ,"murderRate":"1.4", "executionRate":"0.018"} //Wyoming
+
+]
+
+
+	function tooltipHtml(n, d){	/* function to create html content string in tooltip div. */
+		//return "<h1>lolololol</h1>";
+		return "<h4>"+n+"</h4><table>"+
+			//"<tr><td>deathPenalty</td><td>"+(d.deathPenalty)+"</td></tr>"+
+			"<tr><td>Number of executions</td><td>"+(d.numExe)+"</td></tr>"+
+			"<tr><td>Number of persons on death row</td><td>"+(d.numOnDeathRow)+"</td></tr>"+
+			"<tr><td>Num of innocent persons freed</td><td>"+(d.numInno)+"</td></tr>"+
+			"<tr><td>Murder Rate</td><td>"+(d.murderRate)+"</td></tr>"+
+			"</table>";
+	}
+	
+function defineScales(colorProperty){
+		max = d3.max(rawData, function(d){
+			return parseInt(d[colorProperty]);
+		});
+		scaledMax = Math.pow(max, fixer);
+
+		min= d3.min(rawData, function(d){
+			return parseInt(d[colorProperty]);
+		});
+		scaledMin = Math.pow(min, fixer);
+		//	debugger;
+		colorScale = 	d3.scale.linear()
+							//d3.scale.pow()
+							.domain([scaledMin
+							, scaledMax])
+							//.range(["#FFA8A8","#FF0000"])
+							.range(["#DC9D9D", "#8D1414"]);
+
+		colorBarScale = d3.scale.linear()
+							.domain([min, max])
+							.range([0, 200]);
+
+		barScale = d3.scale.linear()
+					.domain([min, max])
+					.range([0, 220]);
+};
+
+function updateStates(colorProperty){
+		states = {};
+		rawData.forEach(function(d){
+
+			// using colorScale and colorProperty to get color
+			var number  = parseInt(d[colorProperty]);
+			var color = colorScale(Math.pow(number, fixer));
+			if(colorProperty != "murderRate" && d.deathPenalty == "No"){
+				color = "#D3D3D3";//"#99CC99"//"blue";
+			} 
+			// Changing format of data
+			var newObject = {deathPenalty: d.deathPenalty, numExe: d.numExe, numInno: d.numInno, numOnDeathRow: d.numOnDeathRow, murderRate: d.murderRate, color: color};
+			states[d.state] = newObject; 
+	});
+}
+
+
+function updateColorBar(){
+	//debugger;
+	$("#minValue").text(min);
+	$("#maxValue").text(max);
+}
+
+// url(#_ABSTRACT_RENDERER_ID_1)
+
+var colorScale;
+var barScale;
+var colorBarScale;
+var fixer = 0.2;
+var states = {};
+var min;
+var max;
+var scaledMax;
+var scaledMin;
+var colorProperty = "numExe";
+var xAxis;
+
+
+// Add event handlers -- radio button
+	$("#stateOptionForm :input").change(function(){
+		var newColorProperty = $('input[name=stateOption]:checked', '#stateOptionForm').val()
+		colorProperty = newColorProperty; // We store in the global variable the current property
+		
+		defineScales(newColorProperty); // create new colorScale
+		updateStates(newColorProperty); // fetch the color
+		updateColorBar();
+
+		uStates.drawStates("#statesvg", states, tooltipHtml);
+
+		uStates.removeChart("#barsvg");
+		uStates.drawBars("#barsvg", states, colorProperty, barScale);
+
+	});
+
+
+	defineScales(colorProperty);
+	updateStates(colorProperty);
+	//debugger;
+		/* draw states on id #statesvg */	
+	uStates.drawStates("#statesvg", states, tooltipHtml);
+	uStates.drawBars("#barsvg", states, colorProperty, barScale);
+
+</script>
+ 
+</body>
